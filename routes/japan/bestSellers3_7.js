@@ -1,115 +1,104 @@
 const express = require("express");
 const axios = require("axios");
 const cheerio = require("cheerio");
-const iconv = require("iconv-lite");
 const connectDB = require("../../util/database");
-
 const router = express.Router();
 
 // 부가 크롤링 함수
-async function crawlDetails($, element, index, intro) {
-  const title = $(element).find("p > a").first().text().trim();
-  let author = $(element).find("div > a").first().text().trim();
-  const linkElement = $(element).find("p > a").attr("href");
-  const link = "https://www.yes24.com" + linkElement;
+async function crawlDetails($, element, index) {
+  const title = $(element).find(".bo3 b").text().trim();
+  let author = $(element)
+    .find(".ss_book_list ul li:eq(2) > a:eq(0)")
+    .text()
+    .trim();
+  let image = $(element).find(".i_cover").attr("src");
+
   const bestseller = {
     index: index + 1,
     title,
     author,
-    intro,
+    image,
   };
+  return bestseller;
+}
+
+async function crawlPage(pageNumber) {
   try {
-    const response = await axios.get(link, { responseType: "arraybuffer" });
-    const decodedData = iconv.decode(response.data, "utf-8").toString();
-    const details$ = cheerio.load(decodedData);
+    const bestURL = `https://www.aladin.co.kr/shop/common/wbest.aspx?BestType=ForeignJapan&BranchType=7&CID=28318&page=${pageNumber}&cnt=300&SortOrder=1`;
+    const response = await axios.get(bestURL);
+    const $ = cheerio.load(response.data);
+    const bestsellers = [];
 
-    // 이미지 크롤링
-    const imageElement = details$("em.imgBdr > img.gImg");
-    const image = imageElement.attr("src") || imageElement.data("src");
+    const bestsellersPromises = $(".ss_book_box")
+      .map(async (index, element) => {
+        const bestseller = await crawlDetails($, element, index);
+        return bestseller;
+      })
+      .get();
 
-    // 카테고리 크롤링
-    const category = details$("#infoset_goodsCate div.infoSetCont_wrap")
-      .find("ul.yesAlertLi > li")
-      .first()
-      .find("a")
-      .eq(1)
-      .text();
+    const results = await Promise.all(bestsellersPromises);
+    bestsellers.push(...results);
 
-    bestseller.image = image;
-    bestseller.category = category;
-
-    return bestseller;
+    return bestsellers;
   } catch (error) {
-    console.error("Error while crawling details:", error.message);
+    console.error(error);
+    throw error;
   }
 }
 
 router.post("/", async (req, res) => {
-  // 베스트셀러 페이지 URL
-  const bestURL =
-    "https://www.yes24.com/24/category/bestseller?CategoryNumber=002001010006&sumgb=06&PageNumber=1&FetchSize=100";
-  const response = await axios.get(bestURL, { responseType: "arraybuffer" });
-  const decodedData = iconv.decode(response.data, "EUC-KR").toString();
-  const $ = cheerio.load(decodedData);
-  const bestsellers = [];
+  try {
+    // 베스트셀러 페이지 1과 2에서 데이터 크롤링
+    const [bestsellersPage1, bestsellersPage2] = await Promise.all([
+      crawlPage(1),
+      crawlPage(2),
+    ]);
 
-  // intro 크롤링
-  const intros = "";
+    // 크롤링한 데이터를 하나의 배열로 합치기
+    const bestsellers = [...bestsellersPage1, ...bestsellersPage2];
 
-  const bestsellersPromises = $(".goodsTxtInfo")
-    .map(async (index, element) => {
-      const bestseller = await crawlDetails($, element, index, intros);
-      return bestseller;
-    })
-    .get();
+    // db저장
+    const client = await connectDB;
+    const db = client.db("books");
+    const bestCollection = db.collection("bestSellers3_7");
 
-  // bestsellers 배열에 추가
-  const results = await Promise.all(bestsellersPromises);
-  bestsellers.push(...results);
+    // 변경된 베스트셀러를 추적하기 위한 플래그
+    let isBestSellerUpdated = false;
 
-  // db저장
-  const client = await connectDB;
-  const db = client.db("books");
-  const bestCollection = db.collection("bestSellers3_7");
-
-  // 변경된 베스트셀러를 추적하기 위한 플래그
-  let isBestSellerUpdated = false;
-
-  for (const book of bestsellers) {
-    if (book.image == null) {
-      book.image = "https://image.yes24.com/momo/Noimg_L.jpg";
-    }
-    if (book.category === "") {
-      book.category = "성인";
-    }
-    const result = await bestCollection.findOneAndUpdate(
-      { title: book.title },
-      {
-        $set: {
-          index: book.index,
-          author: book.author,
-          image: book.image,
-          category: book.category,
+    for (const book of bestsellers) {
+      const result = await bestCollection.findOneAndUpdate(
+        { title: book.title },
+        {
+          $set: {
+            index: book.index,
+            author: book.author,
+            image: book.image,
+            intro: book.intro,
+          },
         },
-      },
-      {
-        upsert: true,
-        returnDocument: "after",
+        {
+          upsert: true,
+          returnDocument: "after",
+        }
+      );
+
+      // 변경사항이 발견된 경우 플래그 업데이트
+      if (result.lastErrorObject && result.lastErrorObject.updatedExisting) {
+        isBestSellerUpdated = true;
       }
-    );
-
-    // 변경사항이 발견된 경우 플래그 업데이트
-    if (result.lastErrorObject && result.lastErrorObject.updatedExisting) {
-      isBestSellerUpdated = true;
     }
-  }
 
-  const documentsCount = await bestCollection.countDocuments({});
-
-  // 변경사항이 있는 경우 또는 베스트셀러 컬렉션이 비어 있을 때 전체 요소 삭제 후 새 목록 추가
-  if (bestsellers.length > 0 && (isBestSellerUpdated || !documentsCount)) {
-    await bestCollection.deleteMany({});
-    await bestCollection.insertMany(bestsellers);
+    const documentsCount = await bestCollection.countDocuments({});
+    // 변경사항이 있는 경우 또는 베스트셀러 컬렉션이 비어 있을 때 전체 요소 삭제 후 새 목록 추가
+    if (bestsellers.length > 0 && (isBestSellerUpdated || !documentsCount)) {
+      await bestCollection.deleteMany({});
+      await bestCollection.insertMany(bestsellers);
+    }
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .send("An error occurred while processing the request.");
   }
 
   res.status(200).json("저장완료");

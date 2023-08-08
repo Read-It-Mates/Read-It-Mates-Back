@@ -71,6 +71,14 @@ const bestSellers3_8 = require("./routes/japan/bestSellers3_8");
 const bestSellers3_9 = require("./routes/japan/bestSellers3_9");
 const bestSellers3_10 = require("./routes/japan/bestSellers3_10");
 const bestSellers3_11 = require("./routes/japan/bestSellers3_11");
+const bestSellers3_12 = require("./routes/japan/bestSellers3_12");
+const bestSellers3_13 = require("./routes/japan/bestSellers3_13");
+const bestSellers3_14 = require("./routes/japan/bestSellers3_14");
+const bestSellers3_15 = require("./routes/japan/bestSellers3_15");
+const bestSellers3_16 = require("./routes/japan/bestSellers3_16");
+const bestSellers3_17 = require("./routes/japan/bestSellers3_17");
+const bestSellers3_18 = require("./routes/japan/bestSellers3_18");
+const bestSellers3_19 = require("./routes/japan/bestSellers3_19");
 
 // express 도구
 const app = express();
@@ -147,6 +155,14 @@ app.use("/bestSellers3_8", bestSellers3_8);
 app.use("/bestSellers3_9", bestSellers3_9);
 app.use("/bestSellers3_10", bestSellers3_10);
 app.use("/bestSellers3_11", bestSellers3_11);
+app.use("/bestSellers3_12", bestSellers3_12);
+app.use("/bestSellers3_13", bestSellers3_13);
+app.use("/bestSellers3_14", bestSellers3_14);
+app.use("/bestSellers3_15", bestSellers3_15);
+app.use("/bestSellers3_16", bestSellers3_16);
+app.use("/bestSellers3_17", bestSellers3_17);
+app.use("/bestSellers3_18", bestSellers3_18);
+app.use("/bestSellers3_19", bestSellers3_19);
 
 // 크롤링 시작 로직
 async function startCrawling() {
@@ -217,6 +233,14 @@ async function startCrawling() {
     await axios.post("http://localhost:" + PORT + "/bestSellers3_9");
     await axios.post("http://localhost:" + PORT + "/bestSellers3_10");
     await axios.post("http://localhost:" + PORT + "/bestSellers3_11");
+    await axios.post("http://localhost:" + PORT + "/bestSellers3_12");
+    await axios.post("http://localhost:" + PORT + "/bestSellers3_13");
+    await axios.post("http://localhost:" + PORT + "/bestSellers3_14");
+    await axios.post("http://localhost:" + PORT + "/bestSellers3_15");
+    await axios.post("http://localhost:" + PORT + "/bestSellers3_16");
+    await axios.post("http://localhost:" + PORT + "/bestSellers3_17");
+    await axios.post("http://localhost:" + PORT + "/bestSellers3_18");
+    await axios.post("http://localhost:" + PORT + "/bestSellers3_19");
   } catch (error) {
     console.error("Error while starting crawling:", error.message);
   } finally {

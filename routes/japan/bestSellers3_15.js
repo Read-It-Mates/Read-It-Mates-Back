@@ -24,7 +24,7 @@ async function crawlDetails($, element, index) {
 
 async function crawlPage(pageNumber) {
   try {
-    const bestURL = `https://www.aladin.co.kr/shop/common/wbest.aspx?BestType=ForeignJapan&BranchType=7&CID=28330&page=${pageNumber}&cnt=300&SortOrder=1`;
+    const bestURL = `https://www.aladin.co.kr/shop/common/wbest.aspx?BestType=ForeignJapan&BranchType=7&CID=28402&page=${pageNumber}&cnt=300&SortOrder=1`;
     const response = await axios.get(bestURL);
     const $ = cheerio.load(response.data);
     const bestsellers = [];
@@ -60,7 +60,7 @@ router.post("/", async (req, res) => {
     // db저장
     const client = await connectDB;
     const db = client.db("books");
-    const bestCollection = db.collection("bestSellers3_5");
+    const bestCollection = db.collection("bestSellers3_15");
 
     // 변경된 베스트셀러를 추적하기 위한 플래그
     let isBestSellerUpdated = false;

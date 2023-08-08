@@ -5,7 +5,7 @@ const connectDB = require("../../util/database");
 const router = express.Router();
 
 // 부가 크롤링 함수
-async function crawlDetails($, element, index, intro) {
+async function crawlDetails($, element, index) {
   const title = $(element).find(".bo3 b").text().trim();
   let author = $(element)
     .find(".ss_book_list ul li:eq(2) > a:eq(0)")
@@ -17,36 +17,46 @@ async function crawlDetails($, element, index, intro) {
     index: index + 1,
     title,
     author,
-    intro,
     image,
   };
   return bestseller;
 }
 
-router.post("/", async (req, res) => {
+async function crawlPage(pageNumber) {
   try {
-    // 베스트셀러 페이지 URL
-    const bestURL =
-      "https://www.aladin.co.kr/shop/common/wnew.aspx?ViewRowsCount=50&ViewType=Detail&SortOrder=2&page=1&BranchType=7&PublishDay=180&NewType=ForeignJapanSpecial&CustReviewRankStart=&CustReviewRankEnd=&CustReviewCountStart=&CustReviewCountEnd=&PriceFilterMin=&PriceFilterMax=&IsNotForeignSupplier=&SearchOption=";
+    const bestURL = `https://www.aladin.co.kr/shop/common/wnew.aspx?ViewRowsCount=50&ViewType=Detail&SortOrder=2&page=${pageNumber}&BranchType=7&PublishDay=180&NewType=ForeignJapanSpecial&CustReviewRankStart=&CustReviewRankEnd=&CustReviewCountStart=&CustReviewCountEnd=&PriceFilterMin=&PriceFilterMax=&IsNotForeignSupplier=&SearchOption=`;
+
     const response = await axios.get(bestURL);
     const $ = cheerio.load(response.data);
     const bestsellers = [];
 
-    // intro 크롤링
-    const intros = $(".ss_book_box table p.ss_promotion")
-      .map((_, p) => $(p).text().trim())
-      .get();
-
     const bestsellersPromises = $(".ss_book_box")
       .map(async (index, element) => {
-        const bestseller = await crawlDetails($, element, index, intros[index]);
+        const bestseller = await crawlDetails($, element, index);
         return bestseller;
       })
       .get();
 
-    // bestsellers 배열에 추가
     const results = await Promise.all(bestsellersPromises);
     bestsellers.push(...results);
+
+    return bestsellers;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+}
+
+router.post("/", async (req, res) => {
+  try {
+    // 베스트셀러 페이지 1과 2에서 데이터 크롤링
+    const [bestsellersPage1, bestsellersPage2] = await Promise.all([
+      crawlPage(1),
+      crawlPage(2),
+    ]);
+
+    // 크롤링한 데이터를 하나의 배열로 합치기
+    const bestsellers = [...bestsellersPage1, ...bestsellersPage2];
 
     // db저장
     const client = await connectDB;
