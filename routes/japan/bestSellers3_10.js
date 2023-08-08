@@ -2,7 +2,7 @@ const express = require("express");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const iconv = require("iconv-lite");
-const connectDB = require("../util/database");
+const connectDB = require("../../util/database");
 
 const router = express.Router();
 
@@ -47,7 +47,7 @@ async function crawlDetails($, element, index, intro) {
 router.post("/", async (req, res) => {
   // 베스트셀러 페이지 URL
   const bestURL =
-    "https://www.yes24.com/24/category/bestseller?CategoryNumber=002001010&sumgb=06&PageNumber=1&FetchSize=100";
+    "https://www.yes24.com/24/category/bestseller?CategoryNumber=002001010005&sumgb=06&PageNumber=1&FetchSize=100";
   const response = await axios.get(bestURL, { responseType: "arraybuffer" });
   const decodedData = iconv.decode(response.data, "EUC-KR").toString();
   const $ = cheerio.load(decodedData);
@@ -70,7 +70,7 @@ router.post("/", async (req, res) => {
   // db저장
   const client = await connectDB;
   const db = client.db("books");
-  const bestCollection = db.collection("bestSellers3");
+  const bestCollection = db.collection("bestSellers3_10");
 
   // 변경된 베스트셀러를 추적하기 위한 플래그
   let isBestSellerUpdated = false;
